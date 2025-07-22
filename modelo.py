@@ -5,13 +5,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import CountVectorizer
 from xgboost import XGBClassifier
 from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline as ImbPipeline
+from sklearn.model_selection import train_test_split
 
 
 def carregar_base(caminho):
     df = pd.read_csv(caminho)
     for col in ['keywords_encontradas', 'keywords_vaga']:
-        df[col] = df[col].apply(lambda x: x if pd.notnull(x) else '')
+        df[col] = df[col].fillna('')
     return df
 
 
@@ -20,7 +20,6 @@ def treinar_modelo(df, target_col='target'):
     features_cat = ['nivel_academico', 'nivel_ingles', 'nivel_espanhol',
                     'area_atuacao', 'tipo_contratacao', 'nivel_profissional']
 
-    # Garantir que não existam NaNs nas colunas categóricas e textuais
     for col in features_text + features_cat:
         df[col] = df[col].fillna('')
 
@@ -37,22 +36,27 @@ def treinar_modelo(df, target_col='target'):
         ('cat', cat_transformer, features_cat)
     ])
 
-    pipeline = ImbPipeline(steps=[
-        ('preprocessor', preprocessor),
-        ('smote', SMOTE(random_state=42)),
-        ('classifier', XGBClassifier(
-            use_label_encoder=False,
-            eval_metric='logloss',
-            random_state=42,
-            max_depth=5,
-            scale_pos_weight=3,
-            subsample=0.8
-        ))
-    ])
+    # Pré-processa os dados antes do SMOTE
+    X_processed = preprocessor.fit_transform(X)
 
-    pipeline.fit(X, y)
-    return pipeline
+    # Aplica o SMOTE sobre os dados numéricos já transformados
+    smote = SMOTE(random_state=42)
+    X_resampled, y_resampled = smote.fit_resample(X_processed, y)
+
+    model = XGBClassifier(
+        use_label_encoder=False,
+        eval_metric='logloss',
+        random_state=42,
+        max_depth=5,
+        scale_pos_weight=3,
+        subsample=0.8
+    )
+
+    model.fit(X_resampled, y_resampled)
+
+    return model, preprocessor  # Retorna também o preprocessor para uso posterior
 
 
-def prever_candidato(modelo, dados_input):
-    return modelo.predict(dados_input), modelo.predict_proba(dados_input)[:, 1]
+def prever_candidato(modelo, preprocessor, dados_input):
+    X_input = preprocessor.transform(dados_input)
+    return modelo.predict(X_input), modelo.predict_proba(X_input)[:, 1]
