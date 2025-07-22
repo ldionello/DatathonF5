@@ -20,6 +20,10 @@ def treinar_modelo(df, target_col='target'):
     features_cat = ['nivel_academico', 'nivel_ingles', 'nivel_espanhol',
                     'area_atuacao', 'tipo_contratacao', 'nivel_profissional']
 
+    # Garantir que não existam NaNs nas colunas categóricas e textuais
+    for col in features_text + features_cat:
+        df[col] = df[col].fillna('')
+
     X = df[features_text + features_cat]
     y = df[target_col]
 

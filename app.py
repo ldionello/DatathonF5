@@ -66,7 +66,11 @@ palavras_chave = [
 
 @st.cache_resource
 def carregar_modelo():
-    df = carregar_base('dados/arquivo.csv')
+    try:
+        df = pd.read_csv('dados/arquivo.csv', sep=';', engine='python')
+    except pd.errors.ParserError:
+        df = pd.read_csv('dados/arquivo.csv', sep=',', engine='python')
+
     return treinar_modelo(df)
 
 
