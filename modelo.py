@@ -39,10 +39,17 @@ def treinar_modelo(df, target_col='target'):
     # Pré-processa os dados antes do SMOTE
     X_processed = preprocessor.fit_transform(X)
 
-    # Aplica o SMOTE sobre os dados numéricos já transformados
-    smote = SMOTE(random_state=42)
-    X_resampled, y_resampled = smote.fit_resample(X_processed, y)
+    # Converte para denso se necessário
+    if hasattr(X_processed, "toarray"):
+        X_dense = X_processed.toarray()
+    else:
+        X_dense = X_processed
 
+    # Aplica SMOTE
+    smote = SMOTE(random_state=42)
+    X_resampled, y_resampled = smote.fit_resample(X_dense, y)
+
+    # Treina modelo
     model = XGBClassifier(
         use_label_encoder=False,
         eval_metric='logloss',
@@ -51,12 +58,8 @@ def treinar_modelo(df, target_col='target'):
         scale_pos_weight=3,
         subsample=0.8
     )
-
     model.fit(X_resampled, y_resampled)
 
-    return model, preprocessor  # Retorna também o preprocessor para uso posterior
-
-
-def prever_candidato(modelo, preprocessor, dados_input):
-    X_input = preprocessor.transform(dados_input)
-    return modelo.predict(X_input), modelo.predict_proba(X_input)[:, 1]
+    def prever_candidato(modelo, preprocessor, dados_input):
+        X_input = preprocessor.transform(dados_input)
+        return modelo.predict(X_input), modelo.predict_proba(X_input)[:, 1]
